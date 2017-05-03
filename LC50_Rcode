@@ -1,0 +1,31 @@
+#This code is useful for probit analyis in determining LC-50
+##This model and code is taken from Pacheco & Rebelo (2013) "A Simple R-based function to estimate lethal concentrations" from Marine Environmental Research (91:41-44)
+
+calcula.lc<-function(status,conc,lc=0.5,alfa=0.05,func='probit',arred=2){
+	if(!is.matrix(status)) stop('status must be a matrix with 2 columns') 
+	else { if (dim(status)[2]!=2) stop('The status matrix must have 2 columns')
+		}
+		
+		invlin<-function(x,y) {
+			return((y-x$coef[1])/x$coef[2])
+			}
+modelo<-glm(status~conc, family=binomial(func))
+signif<-as.numeric(anova(modelo, test="Chisq")[2,c(1,4:5)])
+fit<-as.numeric(invlin(modelo,family(modelo)$linkfun(lc)))
+erro<-predict(modelo,se.fit=T,type="response",newdata=data.frame(conc=fit))$se.fit
+lwr<-invlin(modelo,family(modelo)$linkfun(lc+qnorm(alfa/2)*erro))
+upr<-invlin(modelo,family(modelo)$linkfun(lc-qnorm(alfa/2)*erro))
+lc_resp<-round(data.frame(lc,fit,lwr,upr),arred)
+lc_resp<-cbind(lc_resp,df=round(signif[1]),chisq=round(signif[2],2),pval=signif[3])
+return(lc_resp)
+}
+
+#The above is to script in the model, below is to run data on the probit model using an example of cyanobacteria fed to dreissenid veligers
+
+#aphanizomenon flos-aquae data:
+aphan<-matrix(c(1,11,4,8,6,6,11,1,11,1,11,1),ncol=2,byrow=T)
+conc<-c(0,0.05,0.1,0.2,0.3,0.4)
+calcula.lc(aphan,conc)
+
+#Where inside the matrix is the mortality in terms of dead,alive for each treatment (n=12 in this case)
+
